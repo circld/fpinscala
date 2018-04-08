@@ -1,5 +1,4 @@
 package fpinscala.gettingstarted
-{{{{}}}}
 
 // A comment!
 /* Another comment */

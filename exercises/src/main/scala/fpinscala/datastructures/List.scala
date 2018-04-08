@@ -1,4 +1,5 @@
 package fpinscala.datastructures
+import scala.annotation.tailrec
 
 sealed trait List[+A] // `List` data type, parameterized on a type, `A`
 case object Nil extends List[Nothing] // A `List` data constructor representing the empty list
@@ -37,6 +38,7 @@ object List { // `List` companion object. Contains functions for creating and wo
       case Cons(h,t) => Cons(h, append(t, a2))
     }
 
+  // List.foldRight(testList, List[Int]())(Cons(_, _))
   def foldRight[A,B](as: List[A], z: B)(f: (A, B) => B): B = // Utility functions
     as match {
       case Nil => z
@@ -81,6 +83,7 @@ object List { // `List` companion object. Contains functions for creating and wo
     case Cons(x, xs) => 1 + length(xs)
   }
 
+  // List.foldLeft(testList, List[Int]())((a, b) => Cons(b, a))
   def foldLeft[A,B](l: List[A], z: B)(f: (B, A) => B): B = l match {
     case Nil => z
     case Cons(x, xs) => foldLeft(xs, f(z, x))(f)
@@ -91,8 +94,15 @@ object List { // `List` companion object. Contains functions for creating and wo
     case Cons(x, xs) => Cons(f(x), map(xs)(f))
   }
 
+  // TODO: implement foldRight in terms of foldLeft
+  // TODO: fix mapTRO to not reverse list
+  // TODO: implement filter using TRO
+
   // tail recursive variant
+  // expand array to pass as args:
+  // List.map(List((1 to 1000): _ *))(_ * 2)
   def mapTRO[A,B](l: List[A])(f: A => B): List[B] = {
+    @tailrec
     def loop[A,B](xs: List[A])(g: A => B)(acc: List[B]): List[B] = xs match {
       case Nil => acc
       case Cons(a, as) => loop(as)(g)(Cons(g(a), acc))
@@ -100,4 +110,18 @@ object List { // `List` companion object. Contains functions for creating and wo
 
     loop(l)(f)(Nil)
   }
+
+  def filter[A](as: List[A])(f: A => Boolean): List[A] = {
+    def loop[A](bs: List[A], acc: List[A])(f: A => Boolean): List[A] = bs match {
+      case Nil => acc
+      case Cons(x, xs) => loop(xs, if (f(x)) Cons(x, acc) else acc)(f)
+    }
+
+    loop(as, List())(f)
+  }
+
+  // def filter[A](as: List[A])(f: A => Boolean): List[A] = as match {
+  //   case Nil => as
+  //   case Cons(x, xs) => if (f(x)) Cons(x, filter(xs)(f)) else filter(xs)(f)
+  // }
 }
