@@ -94,24 +94,23 @@ object List { // `List` companion object. Contains functions for creating and wo
     case Cons(x, xs) => Cons(f(x), map(xs)(f))
   }
 
-  // TODO: implement foldRight in terms of foldLeft
-  // TODO: fix mapTRO to not reverse list
-  // TODO: implement filter using TRO
+  // List.foldRight(testList, List[Int]())(Cons(_, _))
+  // idea: correct reversing of order by composing function applications
+  //       accumulator becomes identity func (accumulation now in composed func)
+  def foldRight2[A,B](as: List[A], z: B)(f: (A, B) => B): B =
+    foldLeft(as, (z: B) => z)((g, a) => (b: B) => g(f(a, b)))(z)
 
   // tail recursive variant
-  // expand array to pass as args:
-  // List.map(List((1 to 1000): _ *))(_ * 2)
-  def mapTRO[A,B](l: List[A])(f: A => B): List[B] = {
-    @tailrec
-    def loop[A,B](xs: List[A])(g: A => B)(acc: List[B]): List[B] = xs match {
-      case Nil => acc
-      case Cons(a, as) => loop(as)(g)(Cons(g(a), acc))
-    }
+  // List.foldRight2(testList, List[Int]())(Cons(_, _))
+  def mapTRO[A,B](l: List[A])(f: A => B): List[B] =
+    // foldRight2(l, List[B]())((h: A, t: List[B]) => Cons(f(h), t))
+    foldLeft(l, (z: List[B]) => z)(
+      (g, h) => (t: List[B]) => g(Cons(f(h), t)))(Nil)
 
-    loop(l)(f)(Nil)
-  }
-
+  // TODO: implement filter using TRO
+  // List.filter(testList)(_ % 2 == 0)
   def filter[A](as: List[A])(f: A => Boolean): List[A] = {
+    @tailrec
     def loop[A](bs: List[A], acc: List[A])(f: A => Boolean): List[A] = bs match {
       case Nil => acc
       case Cons(x, xs) => loop(xs, if (f(x)) Cons(x, acc) else acc)(f)
@@ -124,4 +123,7 @@ object List { // `List` companion object. Contains functions for creating and wo
   //   case Nil => as
   //   case Cons(x, xs) => if (f(x)) Cons(x, filter(xs)(f)) else filter(xs)(f)
   // }
+
+  // TODO: write a function that concats list of lists into single list
+  // w/linear runtime in total length of all lists
 }
