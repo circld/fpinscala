@@ -20,6 +20,9 @@ object List { // `List` companion object. Contains functions for creating and wo
     case Cons(x,xs) => x * product(xs)
   }
 
+  def productLF(ds: List[Double]): Double =
+    foldLeft(ds, 1.0)((a, b) => a*b)
+
   def apply[A](as: A*): List[A] = // Variadic function syntax
     if (as.isEmpty) Nil
     else Cons(as.head, apply(as.tail: _*))
@@ -38,6 +41,9 @@ object List { // `List` companion object. Contains functions for creating and wo
       case Cons(h,t) => Cons(h, append(t, a2))
     }
 
+  def appendLF[A](a1: List[A], a2: List[A]): List[A] =
+    List.foldLeft(a1, (z: List[A]) => z)((g, a) => (b) => g(Cons(a, b)))(a2)
+
   // List.foldRight(testList, List[Int]())(Cons(_, _))
   def foldRight[A,B](as: List[A], z: B)(f: (A, B) => B): B = // Utility functions
     as match {
@@ -47,6 +53,9 @@ object List { // `List` companion object. Contains functions for creating and wo
 
   def sum2(ns: List[Int]) =
     foldRight(ns, 0)((x,y) => x + y)
+
+  def sumLF(ns: List[Int]) =
+    foldLeft(ns, 0)((x,y) => x + y)
 
   def product2(ns: List[Double]) =
     foldRight(ns, 1.0)(_ * _) // `_ * _` is more concise notation for `(x,y) => x * y`; see sidebar
@@ -107,22 +116,17 @@ object List { // `List` companion object. Contains functions for creating and wo
     foldLeft(l, (z: List[B]) => z)(
       (g, h) => (t: List[B]) => g(Cons(f(h), t)))(Nil)
 
-  // TODO: implement filter using TRO
+  def reverse[A](l: List[A]): List[A] = foldLeft(l, List[A]())((a, b) => Cons(b, a))
+
   // List.filter(testList)(_ % 2 == 0)
-  def filter[A](as: List[A])(f: A => Boolean): List[A] = {
-    @tailrec
-    def loop[A](bs: List[A], acc: List[A])(f: A => Boolean): List[A] = bs match {
-      case Nil => acc
-      case Cons(x, xs) => loop(xs, if (f(x)) Cons(x, acc) else acc)(f)
-    }
+  def filter[A](as: List[A])(f: A => Boolean): List[A] =
+    // foldLeft(as, (z: List[A]) => z)((g, a) => if (f(a)) (b) => g(Cons(a, b)) else g)(List[A]())
+    foldRight2(as, List[A]())((a, b) => if (f(a)) Cons(a, b) else b)
 
-    loop(as, List())(f)
+  def filterStackUnsafe[A](as: List[A])(f: A => Boolean): List[A] = as match {
+    case Nil => as
+    case Cons(x, xs) => if (f(x)) Cons(x, filter(xs)(f)) else filter(xs)(f)
   }
-
-  // def filter[A](as: List[A])(f: A => Boolean): List[A] = as match {
-  //   case Nil => as
-  //   case Cons(x, xs) => if (f(x)) Cons(x, filter(xs)(f)) else filter(xs)(f)
-  // }
 
   // TODO: write a function that concats list of lists into single list
   // w/linear runtime in total length of all lists
