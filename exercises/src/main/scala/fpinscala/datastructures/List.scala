@@ -128,6 +128,39 @@ object List { // `List` companion object. Contains functions for creating and wo
     case Cons(x, xs) => if (f(x)) Cons(x, filter(xs)(f)) else filter(xs)(f)
   }
 
-  // TODO: write a function that concats list of lists into single list
   // w/linear runtime in total length of all lists
+  // n.b., (appendLF) == (_ appendLF _) == ((a, b) => append(a, b))
+  // in this case; last may be needed to help type inference
+  def concat[A](l: List[List[A]]): List[A] =
+    foldRight2(l, List[A]())(appendLF)
+
+  // can use foldLeft bc function is commutative
+  def flatMap[A,B](as: List[A])(f: A => List[B]): List[B] =
+    // foldLeft(map(as)(f), List[B]())(append)
+    concat(map(as)(f))
+
+  // implement filter using flatMap
+  def filterFM[A](as: List[A])(f: A => Boolean): List[A] =
+    flatMap(as)((a) => if (f(a)) List(a) else Nil)
+
+  def zipWith[A](as: List[A], bs: List[A])(f: (A, A) => A): List[A] = (as, bs) match {
+    case (Nil, _) => Nil
+    case (_, Nil) => Nil
+    case (Cons(x, xs), Cons(y, ys)) => Cons(f(x, y), zipWith(xs, ys)(f))
+  }
+
+  // idea: zipWith variant returning function doing the zipping
+  def zipWithTRO[A](as: List[A], bs: List[A])(f: (A, A) => A): List[A] = {
+    def loop[A](xs: List[A], ys: List[A])(f1: (A, A) => A)
+      (g: List[A] => List[A]): List[A] => List[A] = {
+      (xs, ys) match {
+        case (Nil, _) => g
+        case (_, Nil) => g
+        case (Cons(c, cs), Cons(d, ds)) => loop(cs, ds)(f1)((h: List[A]) => g(Cons(f1(c, d), h)))
+      }
+    }
+
+    loop(as, bs)(f)((a) => a)(Nil)
+  }
+
 }
