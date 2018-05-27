@@ -41,7 +41,7 @@ object List { // `List` companion object. Contains functions for creating and wo
       case Cons(h,t) => Cons(h, append(t, a2))
     }
 
-  def appendLF[A](a1: List[A], a2: List[A]): List[A] =
+  def appendFL[A](a1: List[A], a2: List[A]): List[A] =
     List.foldLeft(a1, (z: List[A]) => z)((g, a) => (b) => g(Cons(a, b)))(a2)
 
   // List.foldRight(testList, List[Int]())(Cons(_, _))
@@ -93,6 +93,7 @@ object List { // `List` companion object. Contains functions for creating and wo
   }
 
   // List.foldLeft(testList, List[Int]())((a, b) => Cons(b, a))
+  @annotation.tailrec
   def foldLeft[A,B](l: List[A], z: B)(f: (B, A) => B): B = l match {
     case Nil => z
     case Cons(x, xs) => foldLeft(xs, f(z, x))(f)
@@ -129,10 +130,10 @@ object List { // `List` companion object. Contains functions for creating and wo
   }
 
   // w/linear runtime in total length of all lists
-  // n.b., (appendLF) == (_ appendLF _) == ((a, b) => append(a, b))
+  // n.b., (appendFL) == (_ appendFL _) == ((a, b) => append(a, b))
   // in this case; last may be needed to help type inference
   def concat[A](l: List[List[A]]): List[A] =
-    foldRight2(l, List[A]())(appendLF)
+    foldRight2(l, List[A]())(appendFL)
 
   // can use foldLeft bc function is commutative
   def flatMap[A,B](as: List[A])(f: A => List[B]): List[B] =
@@ -151,6 +152,7 @@ object List { // `List` companion object. Contains functions for creating and wo
 
   // idea: zipWith variant returning function doing the zipping
   def zipWithTRO[A](as: List[A], bs: List[A])(f: (A, A) => A): List[A] = {
+    @annotation.tailrec
     def loop[A](xs: List[A], ys: List[A])(f1: (A, A) => A)
       (g: List[A] => List[A]): List[A] => List[A] = {
       (xs, ys) match {
@@ -161,6 +163,22 @@ object List { // `List` companion object. Contains functions for creating and wo
     }
 
     loop(as, bs)(f)((a) => a)(Nil)
+  }
+
+  def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean = {
+    @annotation.tailrec
+    def loop[A](as: List[A], bs: List[A])
+      (ss: List[A])
+      (f: (Boolean, List[A], List[A]) => List[A]): Boolean = (as, bs) match {
+        case (_, Nil) => true
+        case (Nil, _) => false
+        case (Cons(x, xs), Cons(y, ys)) =>
+          loop(f(x == y, xs, f(bs == ss, xs, as)), f(x==y, ys, ss))(ss)(f)
+    }
+
+    // by making conditional into a function and passing as additional param,
+    // @annotation.tailrec compiler hint is able to optimize
+    loop(sup, sub)(sub)((cond, ds, es) => if (cond) ds else es)
   }
 
 }
