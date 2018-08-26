@@ -1,28 +1,15 @@
 package fpinscala.errorhandling
+import scala.annotation.tailrec
 
 // hide std library `Option`, `Some` and `Either`, since we are writing our own in this chapter
 import scala.{None => _, Option => _, Some => _, Either => _, _}
 
-// illustrative example demonstrating diff b/w map + flatmap (in Option context)
-// http://seanparsons.github.io/scalawat/Using+flatMap+With+Option.html
-//
-//case class Player(name: String)
-// def lookupPlayer(id: Int): Option[Player] = {
-//   if (id == 1) Some(new Player("Sean"))
-//   else if(id == 2) Some(new Player("Greg"))
-//   else None
-// }
-// def lookupScore(player: Player): Option[Int] = {
-//   if (player.name == "Sean") Some(1000000) else None
-// }
-//
-// println(lookupPlayer(1).map(lookupScore))  // Some(Some(1000000))
-// println(lookupPlayer(2).map(lookupScore))  // Some(None)
-// println(lookupPlayer(3).map(lookupScore))  // None
-//
-// println(lookupPlayer(1).flatMap(lookupScore))  // Some(1000000)
-// println(lookupPlayer(2).flatMap(lookupScore))  // None
-// println(lookupPlayer(3).flatMap(lookupScore))  // None
+// map vs flatMap
+// map
+// - returns Some if input is present, None otherwise
+// - if function returns Option, then returns Some(Some) or Some(None)
+// flatMap (map + flatten, work over nesting)
+// - if function returns Option, does the right thing (Some or None)
 
 sealed trait Option[+A] {
   def map[B](f: A => B): Option[B] = this match {
@@ -70,11 +57,35 @@ object Option {
     if (xs.isEmpty) None
     else Some(xs.sum / xs.length)
 
-  def variance(xs: Seq[Double]): Option[Double] = ???
+  def variance(xs: Seq[Double]): Option[Double] =
+    mean(xs) flatMap (m => mean(xs map ((x) => math.pow(x - m, 2))))
 
-  def map2[A,B,C](a: Option[A], b: Option[B])(f: (A, B) => C): Option[C] = ???
+  def map2[A,B,C](a: Option[A], b: Option[B])(f: (A, B) => C): Option[C] =
+    a flatMap (aa => b map (f(aa, _: B)))
 
-  def sequence[A](a: List[Option[A]]): Option[List[A]] = ???
+  def sequence[A](a: List[Option[A]]): Option[List[A]] = {
+    @tailrec
+    def loop[A](b: List[Option[A]])(c: List[A]): List[A] = b match {
+      case Nil => c
+      case None :: _ => Nil
+      case Some(x) :: tail => loop(tail)(x :: c)
+    }
 
-  def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] = ???
+    loop(a)(List[A]()) match {
+      case Nil => None
+      case x => Some(x)
+    }
+  }
+
+  // this is pretty mind-melting; foldRight + map2 + options
+  // n.b., the List[Option[B]] -> Option[List[B]] is happening from `map2`
+  // "lifting" the list concat operator `::` from:
+  // A :: List[A] => List[A]
+  // to Option[A] :: Option[List[A]]) => Option[List[A]]
+  def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] =
+    a.foldRight[Option[List[B]]](Some(Nil))((h, t) => map2(f(h), t)(_ :: _))
+
+  def sequence_trav[A](a: List[Option[A]]): Option[List[A]] =
+    traverse(a)(x => x)
+
 }
