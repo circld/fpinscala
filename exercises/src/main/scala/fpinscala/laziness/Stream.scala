@@ -69,13 +69,23 @@ trait Stream[+A] {
     case Cons(h, t) => Some(h())
   }
 
-
   // if stream is empty, function will not be called and z (None) gets returned
   def headOptionFoldRight: Option[A] =
     foldRight(None: Option[A])((a, _) => Some(a))
 
   // 5.7 map, filter, append, flatmap using foldRight. Part of the exercise is
   // writing your own function signatures.
+  def map[B](f: A => B): Stream[B] =
+    foldRight(Stream[B]())((a, b) => cons(f(a), b))
+
+  def filter(p: A => Boolean): Stream[A] =
+    foldRight(Stream[A]())((a, b) => if (p(a)) cons(a, b) else b)
+
+  // the resulting type has to be a supertype
+  def append[B>:A](as: Stream[B]): Stream[B] = foldRight(as)((a, b) => cons(a, b))
+
+  def flatMap[B](f: A => Stream[B]): Stream[B] =
+    foldRight(Stream[B]())((a, b) => f(a) append b)
 
   def startsWith[B](s: Stream[B]): Boolean = ???
 }
