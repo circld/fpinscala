@@ -46,6 +46,14 @@ trait Stream[+A] {
     case _ => empty
   }
 
+  def takeUnfold(n: Int): Stream[A] =
+    unfold((n, this))(
+      (s: (Int, Stream[A])) => s match {
+        case (a, Cons(h, t)) if a > 0 => Some(h(), (a - 1, t()))
+        case _ => None
+      }
+    )
+
   @annotation.tailrec
   final def drop(n: Int): Stream[A] = this match {
     case Cons(_, t) if n > 0 => t().drop(n - 1)
@@ -57,9 +65,10 @@ trait Stream[+A] {
     case _ => empty
   }
 
-
   def takeWhileFoldRight(p: A => Boolean): Stream[A] =
     foldRight(Stream[A]())((a, b) => if (p(a)) cons(a, b) else empty)
+
+  def takeWhileUnfold(p: A => Boolean): Stream[A] = ???
 
   def forAll(p: A => Boolean): Boolean =
     foldRight(true)((a, b) => p(a) && b)
@@ -87,13 +96,20 @@ trait Stream[+A] {
   def flatMap[B](f: A => Stream[B]): Stream[B] =
     foldRight(Stream[B]())((a, b) => f(a) append b)
 
+  def zipWith[A](as: Stream[A], bs: Stream[A])(f: (A, A) => A): Stream[A] = ???
+
+  // continues traversal as long as one stream is productive; uses option to
+  // indicate a stream has been exhausted.
+  def zipAll[A](as: Stream[A], bs: Stream[A])(f: (A, A) => A): Stream[Option[A]] = ???
+
   def startsWith[B](s: Stream[B]): Boolean = ???
 }
 case object Empty extends Stream[Nothing]
 case class Cons[+A](h: () => A, t: () => Stream[A]) extends Stream[A]
 
-// how do thing defined on the trait v on the companion object work?
-// are they additive (is there no distinction from the user's perspective?)
+// how do things defined on the trait v on the companion object work?
+// trait -> instance methods
+// obj   -> static methods
 object Stream {
   // "smart" constructor w/caching
   // n.b., declares Stream[A] type on tail to avoid default of subtypes (e.g.,
@@ -112,6 +128,8 @@ object Stream {
 
   val ones: Stream[Int] = Stream.cons(1, ones)
 
+  val onesUnfold: Stream[Int] = unfold(1)(s => Some((1, s)))
+
   def constant[A](a: A): Stream[A] = {
     // cons(a, constant(a))
     // more efficient implementation (bc does not result in additional object
@@ -120,12 +138,25 @@ object Stream {
     tail
   }
 
+  def constantUnfold[A](a: A): Stream[A] = unfold(a)((b: A) => Some((b, b)))
+
   def from(n: Int): Stream[Int] = cons(n, from(n + 1))
+
+  def fromUnfold(n: Int): Stream[Int] = unfold(n)((b: Int) => Some(b, b + 1))
 
   def fibs(): Stream[Int] = {
     def loop(n0: Int, n1: Int): Stream[Int] = cons(n0, loop(n1, n0 + n1))
     loop(0, 1)
   }
 
-  def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] = ???
+  def fibUnfold(): Stream[Int] = {
+    val f = (s: (Int, Int)) => Some((s._2, (s._2, s._1 + s._2)))
+    cons(0, unfold((0, 1))(f))
+  }
+
+  def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] = f(z) match {
+    case Some( (a, s) ) => cons(a, unfold(s)(f))
+    case None => Stream[A]()
+  }
+
 }
