@@ -68,7 +68,8 @@ trait Stream[+A] {
   def takeWhileFoldRight(p: A => Boolean): Stream[A] =
     foldRight(Stream[A]())((a, b) => if (p(a)) cons(a, b) else empty)
 
-  def takeWhileUnfold(p: A => Boolean): Stream[A] = ???
+  def takeWhileUnfold(p: A => Boolean): Stream[A] =
+    unfold(this)({case Cons(h, t) => if (p(h())) Some((h(), t())) else None})
 
   def forAll(p: A => Boolean): Boolean =
     foldRight(true)((a, b) => p(a) && b)
@@ -96,13 +97,62 @@ trait Stream[+A] {
   def flatMap[B](f: A => Stream[B]): Stream[B] =
     foldRight(Stream[B]())((a, b) => f(a) append b)
 
-  def zipWith[A](as: Stream[A], bs: Stream[A])(f: (A, A) => A): Stream[A] = ???
+  def zipWith[B, C](bs: Stream[B])(f: (A, B) => C): Stream[C] =
+    unfold((this, bs)) {
+      case (Cons(h, t), Cons(bh, bt)) => Some((f(h(), bh()), (t(), bt())))
+      case _ => None
+    }
 
-  // continues traversal as long as one stream is productive; uses option to
-  // indicate a stream has been exhausted.
-  def zipAll[A](as: Stream[A], bs: Stream[A])(f: (A, A) => A): Stream[Option[A]] = ???
+  // continues traversal as long as one stream is productive
+  // n.b., could have had f be (A, B) => C; this limits flexibilty for `f` to
+  // handle cases when A or B may be empty and a value should still be returned
+  // for the other argument
+  def zipWithAll[B,C](bs: Stream[B])(f: (Option[A], Option[B]) => C): Stream[C] =
+    unfold((this, bs)) {
+      case (Cons(h, t), Cons(bh, bt)) => Some((f(Some(h()), Some(bh())), (t(), bt())))
+      case (Cons(h, t), empty) => Some((f(Some(h()), None), (t(), empty)))
+      case (empty, Cons(h, t)) => Some((f(None, Some(h())), (empty, t())))
+      case _ => None
+    }
 
-  def startsWith[B](s: Stream[B]): Boolean = ???
+  def zipAll[B](s2: Stream[B]): Stream[(Option[A],Option[B])] =
+    zipWithAll(s2)((_, _))
+
+  def startsWith[B](s: Stream[B]): Boolean =
+    zipAll(s).takeWhile({case (a, s) => !s.isEmpty}) forAll {case (a, s) => a == s}
+
+  def tails: Stream[Stream[A]] = unfold(this) {
+    // why does this break if `empty` is used instead?
+    // `empty` is a method, not a case class, so it's treated as a regular name
+    case Empty => None
+    case s => Some((s, s drop 1))
+  // why does simply Stream() not work here?
+  // bc `append` adds the contents to the original stream, so you need to append
+  // Stream(Stream()) or Stream(empty)
+  } append Stream(empty)
+
+  def hasSubsequence[A](s: Stream[A]): Boolean = tails exists (_ startsWith s)
+
+  // Stream(1,2,3).scanRight(0)(_ + _).toList
+  // List[Int] = List(6, 5, 3, 0)
+  //
+  // implementing `tails` using `scanRight`:
+  // testStream.scanRight(Stream[Int]())((a, b) => cons(a, b)).map(_.toList).toList
+  // n.b., cannot cache intermediate calculations
+  def scanRightUnfold[B](z: B)(f: (A, => B) => B): Stream[B] =
+    unfold(this) {
+      case Empty => None
+      case s => Some((s.foldRight(z)(f), s drop 1))
+    } append Stream(z)
+
+  // how does this caching make a difference v unfold implementation
+  def scanRight[B](z: B)(f: (A, => B) => B): Stream[B] =
+    foldRight((z, Stream(z)))((a, b) => {
+      lazy val bb = b
+      val aa = f(a, bb._1)
+      (aa, cons(aa, bb._2))
+    })._2
+
 }
 case object Empty extends Stream[Nothing]
 case class Cons[+A](h: () => A, t: () => Stream[A]) extends Stream[A]
